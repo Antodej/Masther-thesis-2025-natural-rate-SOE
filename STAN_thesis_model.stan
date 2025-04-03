@@ -82,7 +82,6 @@ data {
 parameters {
   real a_y1;
   real a_y2;
- // real <upper=0> a_r;
 real<upper=0> a_r;
  real a_q;
   real b_pi;
@@ -94,7 +93,6 @@ real<upper=0> a_r;
   real phi;
   real c;
   real<lower=0.0001, upper=1> rho_u;
- // real<lower=0> m;
  real m;
   real delta_1;
   real delta_2;
@@ -108,7 +106,6 @@ real<upper=0> a_r;
   real<lower=1, upper=50> kappa2020;
   real<lower=1, upper=50> kappa2021;
   real<lower=1, upper=50> kappa2022;
-//  real<lower=1> kappa2023;
   
 }
 
@@ -228,8 +225,6 @@ if (use_kappa_int == 1 )  {
   kappa[varying_kappa_indices_2021[i]] = kappa2021;
   for (i in 1:size(varying_kappa_indices_2022))
   kappa[varying_kappa_indices_2022[i]] = kappa2022;
- // for (i in 1:size(varying_kappa_indices_2023))
- // kappa[varying_kappa_indices_2023[i]] = kappa2023;
 }
   
 }
@@ -261,33 +256,17 @@ m    ~ normal(0, 0.5);
   
   //kappas priors implicit (uniform)
   
-  //sigma_ystar_s ~ gamma(0.0125, 0.05);
-  // sigma_qgap_s ~ gamma(1.8, 0.6);
-  // sigma_qstar_s ~ gamma(1.8, 0.6);
-  // sigma_pi_s ~ gamma(1.8, 0.6);
-//  sigma_g_s  ~ gamma(0.0125, 0.05);
- // sigma_ygap_s ~ gamma(4, 4);
  sigma_ystar_s ~ gamma(3, 20);
-//   //sigma_ystar_s ~ gamma(1, 4);
 sigma_qgap_s ~ gamma(9, 3);
 sigma_qstar_s ~ gamma(9,12);
-//   sigma_pi_s ~ gamma(3, 1);
-// sigma_u_s ~ gamma(1.5, 0.5);
-// //sigma_u_s ~ gamma(9, 3);
-// sigma_z_s ~ normal(0, 0.1);
-//   sigma_g_s  ~ normal(0, 0.001);
 sigma_g_s  ~ gamma(1, 4);
  sigma_z_s ~ gamma(3, 20);
-  
-  // orignal TB values
    sigma_ygap_s ~ gamma(4, 8);
   sigma_ystar_s ~ gamma(4, 16);
  sigma_qgap_s ~ gamma(4.2, 1.4);
- //sigma_qstar_s ~ gamma(4.2, 1.4);
   sigma_pi_s ~ gamma(4.2, 1.4);
 sigma_u_s ~ gamma(4, 8);
- //sigma_z_s ~ gamma(4, 8);
- // sigma_g_s  ~ gamma(4, 16);
+
   
   
   // Add the Kalman filter log likelihood to the target
