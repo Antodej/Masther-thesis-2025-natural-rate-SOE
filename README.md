@@ -1,0 +1,3 @@
+- the "main_thesis" file runs the STAN program and output the posterior draws of parameters as well as the estimates for the state variables. It needs as input data as formatted in the provided excel file.
+- the "plots.creation" outputs all plots found in the thesis. It takes as input the smoothed output of the kalman filter in the RData format from the output subfolder.
+- the Stan program itself is "Stan_thesis_model"
