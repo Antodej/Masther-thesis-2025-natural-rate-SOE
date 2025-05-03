@@ -1,3 +1,9 @@
+#============
+# I create plots for my thesis here
+# inputs are smoothed estimates of country estimations saved as .RData files
+# Antoine DEJEAN May 2025
+#==========
+
 rm(list=ls())
 library("tis") # Time series package
 library("mFilter") # HP filter
@@ -15,22 +21,36 @@ library("ggh4x")
 #import summary.smoothed for all countries
 setwd('C:/R/master thesis/HLW_edited_code/code_thesis_DEJEAN_1303/output')
 
+#define countries to plot
+country.list = c("BE", "NL", "DK")
+
+for (country in country.list) {
+  load(paste0("summary.smoothed.", country, ".RData"))
+  assign(paste0("summary.smoothed.", country), summary.smoothed)
+  rm(summary.smoothed)
+}
+#to get time  
 load("summary.smoothed.BE.RData")
-summary.smoothed.BE <- summary.smoothed
 summary.smoothed <- summary.smoothed %>%
   filter(state == "rstar_t")
 time.vector=summary.smoothed[,1]
 rm(summary.smoothed)
-load("summary.smoothed.NL.RData")
-summary.smoothed.NL <- summary.smoothed
-rm(summary.smoothed)
-load("summary.smoothed.DK.RData")
-summary.smoothed.DK <- summary.smoothed
-rm(summary.smoothed)
-summary.smoothed.all <- bind_rows(summary.smoothed.BE, 
-                                  summary.smoothed.NL, 
-                                  summary.smoothed.DK)
-rm(summary.smoothed.BE, summary.smoothed.DK, summary.smoothed.NL )
+
+#bind all countries
+text.bind = c()
+for (i in 1:length(country.list)) {
+  country = country.list[i]
+  text.bind[i] = paste0("summary.smoothed.", country)
+}
+summary.smoothed.all = get(text.bind[1])
+for (i in 2:length(text.bind)) {
+  summary.smoothed.all = bind_rows(summary.smoothed.all, get(text.bind[i]))
+}
+
+for (i in 1:length(text.bind)) {
+  rm(list = text.bind[i])
+}
+
 
 setwd('C:/R/master thesis/HLW_edited_code/code_thesis_DEJEAN_1303')
 
@@ -60,12 +80,34 @@ get_expost_IR <- function(country, sheet, file, time_vector) {
   )
 }
 
+get_exante_IR <- function(country, sheet, file, time_vector) {
+  raw_data <- read.xlsx(file, sheet = sheet, 
+                        na.strings = ".", 
+                        colNames = TRUE, 
+                        rowNames = FALSE, 
+                        detectDates = TRUE)
+  raw_exante <- raw_data$interest - raw_data$inflation.expectations
+  exante <- raw_exante[5:length(raw_exante)]
+  tibble(
+    time = time_vector,
+    exante_real_IR = exante,
+    Country = country
+  )
+}
+
 expost_IR_all <- imap_dfr(sheets, ~get_expost_IR(.y, .x, file_path, time.vector))%>%
+  mutate(time = time[[1]]) 
+
+exante_IR_all <- imap_dfr(sheets, ~get_exante_IR(.y, .x, file_path, time.vector))%>%
   mutate(time = time[[1]]) 
 
 plot_df_IR <- left_join(plot_df_IR, expost_IR_all, by = c("time", "Country"))
 plot_df_IR <- plot_df_IR %>% 
   mutate(rgaplow = expost_real_IR - upper, rgap = expost_real_IR - mean, rgapup = expost_real_IR - lower)
+
+plot_df_IRante <- left_join(plot_df_IR, exante_IR_all, by = c("time", "Country"))
+plot_df_IRante <- plot_df_IRante %>% 
+  mutate(rgaplow = exante_real_IR - upper, rgap = exante_real_IR - mean, rgapup = exante_real_IR - lower)
 
 plot_IR_compared <- ggplot(plot_df_IR, aes(x = time, colour=Country)) +
   geom_line(aes(y = mean), linewidth = 1) +  # Bold mean line
@@ -86,6 +128,18 @@ labs(y = "% per annum") + theme_linedraw(base_size = 40) +
   theme(plot.title = element_blank(), axis.title.x = element_blank(),
         panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
+plot_IR_vs_rstarante <- ggplot(plot_df_IRante, aes(x = time)) +
+  geom_line(aes(y = exante_real_IR), linewidth = 1) +
+  geom_line(aes(y = mean), linewidth = 2.5, col="red") +  # Bold mean line
+  geom_line(aes(y = lower), linetype = "dashed", linewidth = 1, col="red") +  # Lower CI as dotted line
+  geom_line(aes(y = upper), linetype = "dashed", linewidth = 1, col="red") +  # Upper CI as dotted line
+  scale_x_date(breaks = seq(as.Date("1975-01-01"),as.Date("2020-01-01") , by = "5 years"), date_labels = "%y") +
+  geom_hline(yintercept=0, linetype = "dotted", linewidth = 1) + ylim(-10,15) +
+  labs(y = "% per annum") + theme_linedraw(base_size = 40) +
+  facet_wrap(~ Country, ncol=1, scales = "free") +
+  theme(plot.title = element_blank(), axis.title.x = element_blank(),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
 plot_IR_gap <- ggplot(plot_df_IR, aes(x = time)) +
   geom_line(aes(y = rgap), linewidth = 1.5, col="red") +  # Bold mean line
   geom_line(aes(y = rgaplow), linetype = "dashed", linewidth = 0.5, col="red") + 
@@ -93,6 +147,15 @@ plot_IR_gap <- ggplot(plot_df_IR, aes(x = time)) +
   scale_x_date(breaks = seq(as.Date("1975-01-01"),as.Date("2020-01-01") , by = "5 years"), date_labels = "%y") +
   geom_hline(yintercept=0, linetype = "dotted", linewidth = 1) +
   labs(y = "% per annum") + theme_linedraw(base_size = 40) + ylim(-10,10) +
+  facet_wrap(~ Country, ncol=1, scales = "free") +
+  theme(plot.title = element_blank(), axis.title.x = element_blank(),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+plot_IR_gap2 <- ggplot(plot_df_IR, aes(x = time)) +
+  geom_col(aes(y = rgap), width = 1.5, col="red") +  
+  scale_x_date(breaks = seq(as.Date("1975-01-01"),as.Date("2020-01-01") , by = "5 years"), date_labels = "%y") +
+  geom_hline(yintercept=0, linetype = "dotted", linewidth = 1) +
+  labs(y = "Difference in % per annum") + theme_linedraw(base_size = 40) + ylim(-10,10) +
   facet_wrap(~ Country, ncol=1, scales = "free") +
   theme(plot.title = element_blank(), axis.title.x = element_blank(),
         panel.grid.major = element_blank(), panel.grid.minor = element_blank())
@@ -170,6 +233,15 @@ plot_ER_vs_qstar <- ggplot(plot_df_ER, aes(x = time)) +
   theme(plot.title = element_blank(), axis.title.x = element_blank(),
         panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
+plot_ER_gap2 <- ggplot(plot_df_ER, aes(x = time)) +
+  geom_col(aes(y = qgap), width = 1.5, col="black") +  
+  scale_x_date(breaks = seq(as.Date("1975-01-01"),as.Date("2020-01-01") , by = "5 years"), date_labels = "%y") +
+  geom_hline(yintercept=0, linetype = "dotted", linewidth = 1) +
+  labs(y = "Difference in index points") + theme_linedraw(base_size = 40) + ylim(-10,15) +
+  facet_wrap(~ Country, ncol=1, scales = "free") +
+  theme(plot.title = element_blank(), axis.title.x = element_blank(),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
 #output
 plot_df_y = summary.smoothed.all %>% filter(state == "ystar_t")
 
@@ -221,7 +293,7 @@ plot_ygap_compared <- ggplot(plot_df_ygap, aes(x = time)) +
         panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
 #decomposition of rstar
-c = c("BE"=1.00, "NL"=1.01, "DK"=0.96) #my estimates
+c = c("BE"=1.00, "NL"=1.01, "DK"=0.95) #my estimates
 plot_df_dec <- summary.smoothed.all %>%
   filter(state %in% c("z_t", "gann_t")) %>%
   select(-lower, -upper)
@@ -234,16 +306,19 @@ plot_dec <- ggplot(plot_df_dec, aes(x = time, y=mean, fill = state)) +
   geom_line(data=filter(plot_df_IR, state=="rstar_t") ,aes(y = mean), linewidth = 2.5, col="red") + 
   facet_wrap(~ Country, scales = "free_y") +  
   labs(y = "% per annum",
-       fill = "Drivers of r*") +
+       fill = "Drivers of r*:", ) +
   theme_linedraw(base_size = 40) +
   scale_x_date(breaks = seq(as.Date("1975-01-01"),as.Date("2025-01-01") , by = "10 years"), date_labels = "%y") +
   facet_wrap(~ Country, ncol=3, scales = "free_x") +
   scale_fill_manual(values = c("gann_t" = "steelblue", "z_t" = "black"),
                     labels = c("gann_t" = "Trend growth (g)", 
                                "z_t" = "Other factors (z)")) +
+  guides(fill = guide_legend(nrow = 1, byrow = TRUE)) +
   scale_y_continuous(breaks=seq(-5,10,2.5)) +
   theme(plot.title = element_blank(), axis.title.x = element_blank(),
-        panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+        legend.title = element_text(size = 40), legend.text = element_text(size = 40),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank(), strip.placement = "outside",
+        legend.position = "bottom")
 
 #rgap vs qgap
 plot_IRER_gaps <- ggplot(plot_df_IR, aes(x = time)) +
@@ -286,7 +361,10 @@ plot_IRER_gaps2 <- ggplot(plot_df_gaps3, aes(x = time, y = value, fill = Gaps)) 
   theme(plot.title = element_blank(), axis.title.x = element_blank(),
         panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
-#debt
+
+
+
+#debt and pop ratio
 raw_debt <- read.xlsx(file_path, sheet = "IMFDEBT", 
                    na.strings = ".", 
                    colNames = TRUE, 
@@ -299,6 +377,21 @@ plot_debt <- ggplot(plot_df_debt, aes(x=year, y=Debt, colour=Country)) +
   geom_line(linewidth=2) +  theme_linedraw(base_size = 20) + 
   labs(y = "Debt (% of GDP)") +
   scale_y_continuous(breaks=seq(0,150,25)) +
+  scale_color_manual(values = c("BE" = "darkgreen", "DK"="red","NL" = "black")) +
+  theme(plot.title = element_blank(), axis.title.x = element_blank(),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+raw_ratio <- read.xlsx(file_path, sheet = "WBWARATIO", 
+                      na.strings = ".", 
+                      colNames = TRUE, 
+                      rowNames = FALSE, 
+                      detectDates = TRUE)
+plot_df_ratio <- pivot_longer(raw_ratio, cols = c(BE, DK, NL),
+                             names_to = "Country", values_to = "Ratio")
+
+plot_debt <- ggplot(plot_df_ratio, aes(x=year, y=Ratio, colour=Country)) +
+  geom_line(linewidth=2) +  theme_linedraw(base_size = 20) + ylim(60,70) +
+  labs(y = "% of total population") +
   scale_color_manual(values = c("BE" = "darkgreen", "DK"="red","NL" = "black")) +
   theme(plot.title = element_blank(), axis.title.x = element_blank(),
         panel.grid.major = element_blank(), panel.grid.minor = element_blank())
@@ -341,7 +434,7 @@ plot_raw_y <- ggplot(plot_data_output, aes(x = time, colour=Country)) +
   scale_x_date(breaks = seq(as.Date("1975-01-01"),as.Date("2020-01-01") , by = "5 years"), date_labels = "%y") +
   labs(y = "log(output) x 100") + theme_linedraw(base_size = 40) +
   scale_color_manual(values = c("BE" = "darkgreen", "DK"="red","NL" = "black")) +
-  theme(plot.title = element_blank(), axis.title.x = element_blank(),
+  theme(plot.title = element_blank(), axis.title.x = element_blank(),axis.title.y=element_text(size=30),
         panel.grid.major = element_blank(), panel.grid.minor = element_blank(), strip.placement = "outside")
 
 plot_raw_IR <- ggplot(plot_data_IR, aes(x = time, colour=Country)) +
@@ -350,7 +443,7 @@ plot_raw_IR <- ggplot(plot_data_IR, aes(x = time, colour=Country)) +
   scale_x_date(breaks = seq(as.Date("1975-01-01"),as.Date("2020-01-01") , by = "5 years"), date_labels = "%y") +
   labs(y = "Short-term nominal interest rates (%)") + theme_linedraw(base_size = 40) +
   scale_color_manual(values = c("BE" = "darkgreen", "DK"="red","NL" = "black")) +
-  theme(plot.title = element_blank(), axis.title.x = element_blank(),
+  theme(plot.title = element_blank(), axis.title.x = element_blank(), axis.title.y=element_text(size=30),
         panel.grid.major = element_blank(), panel.grid.minor = element_blank(), strip.placement = "outside")
 
 plot_raw_ER <- ggplot(plot_data_ER, aes(x = time, colour=Country)) +
@@ -358,7 +451,7 @@ plot_raw_ER <- ggplot(plot_data_ER, aes(x = time, colour=Country)) +
   scale_x_date(breaks = seq(as.Date("1975-01-01"),as.Date("2020-01-01") , by = "5 years"), date_labels = "%y") +
   labs(y = "Real Effective Exchange Rate (Index)") + theme_linedraw(base_size = 40) +
   scale_color_manual(values = c("BE" = "darkgreen", "DK"="red","NL" = "black")) +
-  theme(plot.title = element_blank(), axis.title.x = element_blank(), axis.title.y=element_text(size=25),
+  theme(plot.title = element_blank(), axis.title.x = element_blank(), axis.title.y=element_text(size=30),
         panel.grid.major = element_blank(), panel.grid.minor = element_blank(), strip.placement = "outside")
 
 plot_raw_inf <- ggplot(plot_data_inf, aes(x = time, colour=Country)) +
@@ -367,5 +460,45 @@ plot_raw_inf <- ggplot(plot_data_inf, aes(x = time, colour=Country)) +
   scale_x_date(breaks = seq(as.Date("1975-01-01"),as.Date("2020-01-01") , by = "5 years"), date_labels = "%y") +
   labs(y = "Inflation (QoQ, %)") + theme_linedraw(base_size = 40) +
   scale_color_manual(values = c("BE" = "darkgreen", "DK"="red","NL" = "black")) +
-  theme(plot.title = element_blank(), axis.title.x = element_blank(),
+  theme(plot.title = element_blank(), axis.title.x = element_blank(), axis.title.y=element_text(size=30),
         panel.grid.major = element_blank(), panel.grid.minor = element_blank(), strip.placement = "outside")
+
+#plot1: graph of different r* estimates
+rstars_US <- read.xlsx(file_path, sheet = "RSTARGRAPH1US", 
+                        na.strings = ".", 
+                        colNames = TRUE, 
+                        rowNames = FALSE, 
+                        detectDates = TRUE)
+rstars_EA <- read.xlsx(file_path, sheet = "RSTARGRAPH1EA", 
+                       na.strings = ".", 
+                       colNames = TRUE, 
+                       rowNames = FALSE, 
+                       detectDates = TRUE)
+rstars_US <- rstars_US %>%
+  pivot_longer(
+    cols = -date,          # pivot all columns except the date column
+    names_to = "estimate", # new column to store the former column names
+    values_to = "rstar"  # new column to store the corresponding values
+  )
+rstars_EA <- rstars_EA %>%
+  pivot_longer(
+    cols = -date,          # pivot all columns except the date column
+    names_to = "estimate", # new column to store the former column names
+    values_to = "rstar"  # new column to store the corresponding values
+  )
+rstars <- bind_rows("US" = rstars_US, "Euro Area" = rstars_EA, .id = "source")
+
+plot_rstars <- ggplot(rstars, aes(x=date, colour=estimate)) +
+  facet_wrap(~ source, ncol=2) +
+  geom_line(aes(y=rstar), linewidth = 2) +
+  geom_hline(yintercept=0, linetype="dashed") +
+  scale_x_date(breaks = seq(as.Date("1975-01-01"),as.Date("2020-01-01") , by = "5 years"), date_labels = "%y") +
+  labs(y = "r* estimates (%)", title="Euro Area", colour="Estimates based on:") + theme_linedraw(base_size = 50) +
+  scale_color_manual(values = c("HLW"="black","HT" = "blue","Survey" = "darkorange", "LM"="darkred"),
+                     labels = c("HLW"="Holston et al. (2023)","HT"="Hördahl and Tristani (2014)",
+                                "Survey"="Survey of primary dealers (US) and economists (EA)", "LM"="Lubik and Matthes (2015)")) +
+  guides(color = guide_legend(nrow = 2, byrow = TRUE)) +
+  theme(plot.title = element_blank(), axis.title.x = element_blank(), axis.title.y=element_text(size=40),
+        legend.title = element_text(size = 35), legend.text = element_text(size = 35),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank(), strip.placement = "outside",
+        legend.position = "bottom")

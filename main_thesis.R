@@ -1,8 +1,8 @@
 
 #============
-# This code uses many functions from the code of Holston, Laubach and Williams (2023)
+# This code uses some functions from the code of Holston, Laubach and Williams (2023)
 # It has been augmented to estimate r* with Bayesian method through the cmdstanr package
-# This new estimation follows the model of Berger and Kempa (2014)
+# This new estimation follows an augmented version of  the model of Berger and Kempa (2014)
 # It works alongside the files sourced here
 # Antoine DEJEAN May 2025
 #==========
@@ -111,7 +111,7 @@ if (use.kappa) {
 # =================
 
 # Read input data from folder
-soe.data <- read.xlsx("inputData/DEJEAN_thesis_data_ER.xlsx", sheet="BE1971Q12024Q4",
+soe.data <- read.xlsx("inputData/DEJEAN_thesis_data_ER.xlsx", sheet="DK1971Q12024Q4",
                       na.strings = ".", colNames=TRUE, rowNames=FALSE, detectDates = TRUE)
 
 log.output             <- soe.data$gdp.log
@@ -244,11 +244,11 @@ init_fun <- function() {
     a_y1=1.5,
     a_y2=-0.7,
     a_r=-0.1,
-    a_q=-0.001,
+    a_q=0,
     b_pi=0.5,
     b_y=0.5,
     b_q=-0.25,
-    m=0.001,
+    m=0,
     phi=-0.001,
     c=1,
     delta_1=1.5,
@@ -264,7 +264,7 @@ init_fun <- function() {
     sigma_pi_s = 3,
     sigma_u_s = 0.5,
     sigma_z_s = 0.5,
-    sigma_g_s = 0.25 )
+    sigma_g_s = 0.05 )
 }
 
 #STAN execution
@@ -288,7 +288,7 @@ state.names = c("ystar_t","ystar_t1","ystar_t2","g_t","g_t1","g_t2","z_t","z_t1"
 
 states.bayesian.estimation <- kalman.states.posterior.wrapper.SOE(posterior.draws=fit_results, y.data=y.data, x.data=x.data,
                                   xi.00=xi.00, P.00=P.00, use.kappa=use.kappa, kappa.inputs=kappa.inputs, param.num=param.num,
-                                  state.names=state.names, start=sample.start, end=sample.end, country.code="BE")
+                                  state.names=state.names, start=sample.start, end=sample.end, country.code="DK")
 summary.smoothed=states.bayesian.estimation$tidy.smoothed.states
 summary.filtered=states.bayesian.estimation$tidy.filtered.states
 
